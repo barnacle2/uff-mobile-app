@@ -21,19 +21,12 @@ interface DeliveryAddress {
     instructions: string;
 }
 
-interface PaymentMethod {
-    id: string;
-    name: string;
-    icon: string;
-}
-
 export default function CheckoutPage() {
     const router = useRouter();
     const [cartItems, setCartItems] = useState<CartItem[]>([]);
     const [subtotal, setSubtotal] = useState(0);
     const [deliveryFee, setDeliveryFee] = useState(50); // Fixed delivery fee
     const [total, setTotal] = useState(0);
-    const [selectedPayment, setSelectedPayment] = useState<string>('');
     const [address, setAddress] = useState<DeliveryAddress>({
         street: '',
         city: '',
@@ -41,13 +34,6 @@ export default function CheckoutPage() {
         zipCode: '',
         instructions: ''
     });
-
-    const paymentMethods: PaymentMethod[] = [
-        { id: 'cash', name: 'Cash on Delivery', icon: 'cash-outline' },
-        { id: 'card', name: 'Credit/Debit Card', icon: 'card-outline' },
-        { id: 'gcash', name: 'GCash', icon: 'wallet-outline' },
-        { id: 'maya', name: 'Maya', icon: 'wallet-outline' }
-    ];
 
     useEffect(() => {
         loadCart();
@@ -81,10 +67,6 @@ export default function CheckoutPage() {
             Alert.alert('Error', 'Please fill in all address fields');
             return false;
         }
-        if (!selectedPayment) {
-            Alert.alert('Error', 'Please select a payment method');
-            return false;
-        }
         return true;
     };
 
@@ -92,44 +74,32 @@ export default function CheckoutPage() {
         if (!validateForm()) return;
 
         try {
-            // In a real app, you would:
-            // 1. Send order to backend
-            // 2. Process payment
-            // 3. Get confirmation
-            
-            // For now, we'll just clear the cart and show success
-            await AsyncStorage.removeItem('cart');
-            
-            // Save order to order history
-            const order = {
-                id: Date.now().toString(),
-                items: cartItems,
+            const orderData = {
+                items: cartItems.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    price: parseFloat(item.price.replace('₱', '')),
+                    quantity: item.quantity,
+                    image: 'https://example.com/food.jpg' // placeholder image
+                })),
+                orderType: 'delivery',
+                deliveryAddress: {
+                    id: 'custom',
+                    label: 'Custom Address',
+                    address: `${address.street}, ${address.city}, ${address.state} ${address.zipCode}`,
+                    isDefault: false
+                },
+                subtotal: subtotal,
+                deliveryFee: deliveryFee,
                 total: total,
-                deliveryAddress: address,
-                paymentMethod: selectedPayment,
                 status: 'pending',
-                date: new Date().toISOString()
+                timestamp: new Date().toISOString()
             };
 
-            const savedOrders = await AsyncStorage.getItem('orders');
-            const orders = savedOrders ? JSON.parse(savedOrders) : [];
-            orders.push(order);
-            await AsyncStorage.setItem('orders', JSON.stringify(orders));
-
-            Alert.alert(
-                'Order Placed Successfully',
-                'Thank you for your order! You can track its status in the Orders section.',
-                [
-                    {
-                        text: 'View Orders',
-                        onPress: () => router.push('/orders'),
-                    },
-                    {
-                        text: 'Continue Shopping',
-                        onPress: () => router.push('/'),
-                    }
-                ]
-            );
+            router.push({
+                pathname: '/payment',
+                params: { orderData: JSON.stringify(orderData) }
+            });
         } catch (error) {
             console.error('Error processing order:', error);
             Alert.alert('Error', 'Failed to process your order. Please try again.');
@@ -189,36 +159,6 @@ export default function CheckoutPage() {
                     />
                 </View>
 
-                {/* Payment Method */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Payment Method</Text>
-                    {paymentMethods.map((method) => (
-                        <TouchableOpacity
-                            key={method.id}
-                            style={[
-                                styles.paymentOption,
-                                selectedPayment === method.id && styles.selectedPayment
-                            ]}
-                            onPress={() => setSelectedPayment(method.id)}
-                        >
-                            <Ionicons 
-                                name={method.icon as any}
-                                size={24}
-                                color={selectedPayment === method.id ? '#CA0606' : '#333'}
-                            />
-                            <Text style={[
-                                styles.paymentText,
-                                selectedPayment === method.id && styles.selectedPaymentText
-                            ]}>
-                                {method.name}
-                            </Text>
-                            {selectedPayment === method.id && (
-                                <Ionicons name="checkmark-circle" size={24} color="#CA0606" />
-                            )}
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
                 {/* Order Summary */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Order Summary</Text>
@@ -270,7 +210,7 @@ export default function CheckoutPage() {
                     onPress={handleCheckout}
                 >
                     <Text style={styles.checkoutButtonText}>
-                        Place Order - ₱{total.toFixed(2)}
+                        Continue to Payment - ₱{total.toFixed(2)}
                     </Text>
                 </TouchableOpacity>
             </View>
