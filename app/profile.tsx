@@ -229,7 +229,6 @@ export default function ProfilePage() {
                 >
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Profile</Text>
                 <View style={{ width: 40 }} />
             </View>
 

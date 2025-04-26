@@ -1,24 +1,70 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import * as Facebook from 'expo-auth-session/providers/facebook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginPage() {
     const router = useRouter();
 
+    const [googleRequest, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+        clientId: '412623744712-vrfmkhalmadb4ufl94o0bpqm7l8pjqft.apps.googleusercontent.com',
+        androidClientId: '412623744712-vrfmkhalmadb4ufl94o0bpqm7l8pjqft.apps.googleusercontent.com',
+        iosClientId: '412623744712-vrfmkhalmadb4ufl94o0bpqm7l8pjqft.apps.googleusercontent.com',
+        scopes: ['profile', 'email']
+    });
+
+    const [fbRequest, fbResponse, promptFacebookAsync] = Facebook.useAuthRequest({
+        clientId: 'YOUR_FACEBOOK_APP_ID',
+    });
+
+    useEffect(() => {
+        handleAuthResponse(googleResponse, 'google');
+    }, [googleResponse]);
+
+    useEffect(() => {
+        handleAuthResponse(fbResponse, 'facebook');
+    }, [fbResponse]);
+
+    const handleAuthResponse = async (response: any, provider: string) => {
+        if (response?.type === 'success') {
+            const { authentication } = response;
+            
+            try {
+                // Send token to your backend
+                const result = await fetch(`http://localhost:5000/auth/${provider}/token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        access_token: authentication.accessToken 
+                    }),
+                });
+
+                const data = await result.json();
+                
+                // Store the JWT token
+                await AsyncStorage.setItem('userToken', data.token);
+                await AsyncStorage.setItem('userInfo', JSON.stringify(data.user));
+                
+                // Navigate to main app
+                router.replace('/');
+            } catch (error) {
+                console.error('Authentication error:', error);
+                alert('Authentication failed. Please try again.');
+            }
+        }
+    };
+
     const handleGoogleLogin = async () => {
         try {
-            // In a real app, implement Google OAuth here
-            const mockUserData = {
-                id: 'g-' + Date.now(),
-                name: 'Google User',
-                email: 'user@gmail.com',
-                photo: null
-            };
-            await AsyncStorage.setItem('userToken', 'google-token');
-            await AsyncStorage.setItem('userData', JSON.stringify(mockUserData));
-            router.replace('/profile');
+            await promptGoogleAsync();
         } catch (error) {
             console.error('Google login error:', error);
         }
@@ -26,19 +72,14 @@ export default function LoginPage() {
 
     const handleFacebookLogin = async () => {
         try {
-            // In a real app, implement Facebook OAuth here
-            const mockUserData = {
-                id: 'fb-' + Date.now(),
-                name: 'Facebook User',
-                email: 'user@facebook.com',
-                photo: null
-            };
-            await AsyncStorage.setItem('userToken', 'facebook-token');
-            await AsyncStorage.setItem('userData', JSON.stringify(mockUserData));
-            router.replace('/profile');
+            await promptFacebookAsync();
         } catch (error) {
             console.error('Facebook login error:', error);
         }
+    };
+
+    const handleEmailLogin = () => {
+        router.push('/email-login');
     };
 
     return (
@@ -47,26 +88,23 @@ export default function LoginPage() {
                 style={styles.backButton}
                 onPress={() => router.back()}
             >
-                <Ionicons name="close" size={24} color="#333" />
+                <Ionicons name="arrow-back" size={24} color="#333" />
             </TouchableOpacity>
 
             <View style={styles.content}>
-                <Image 
-                    source={require('../assets/images/uff-logo.png')} 
+                <Image
+                    source={require('../assets/images/uff-logo.png')}
                     style={styles.mascot}
                 />
-
-                <Text style={styles.title}>Sign up or Log in</Text>
-                <Text style={styles.subtitle}>Select your preferred method to continue</Text>
+                
+                <Text style={styles.title}>Welcome to FastFood</Text>
+                <Text style={styles.subtitle}>Sign in to continue</Text>
 
                 <TouchableOpacity 
                     style={[styles.socialButton, styles.googleButton]}
                     onPress={handleGoogleLogin}
                 >
-                    <Image 
-                        source={require('../assets/images/google-icon.png')} 
-                        style={styles.socialIcon}
-                    />
+                    <Ionicons name="logo-google" size={24} color="#EA4335" />
                     <Text style={styles.socialButtonText}>Continue with Google</Text>
                 </TouchableOpacity>
 
@@ -74,16 +112,11 @@ export default function LoginPage() {
                     style={[styles.socialButton, styles.facebookButton]}
                     onPress={handleFacebookLogin}
                 >
-                    <Image 
-                        source={require('../assets/images/facebook-icon.png')} 
-                        style={styles.socialIcon}
-                    />
-                    <Text style={[styles.socialButtonText, styles.facebookButtonText]}>
-                        Continue with Facebook
-                    </Text>
+                    <Ionicons name="logo-facebook" size={24} color="#1877F2" />
+                    <Text style={styles.socialButtonText}>Continue with Facebook</Text>
                 </TouchableOpacity>
 
-                <View style={styles.dividerContainer}>
+                <View style={styles.divider}>
                     <View style={styles.dividerLine} />
                     <Text style={styles.dividerText}>or</Text>
                     <View style={styles.dividerLine} />
@@ -91,15 +124,15 @@ export default function LoginPage() {
 
                 <TouchableOpacity 
                     style={[styles.socialButton, styles.emailButton]}
-                    onPress={() => router.push('/email-login')}
+                    onPress={handleEmailLogin}
                 >
-                    <Ionicons name="mail-outline" size={24} color="#333" />
-                    <Text style={styles.socialButtonText}>Continue with email</Text>
+                    <Ionicons name="mail" size={24} color="#333" />
+                    <Text style={styles.socialButtonText}>Continue with Email</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.termsText}>
+                <Text style={styles.terms}>
                     By continuing, you agree to our{' '}
-                    <Text style={styles.termsLink}>Terms and Conditions</Text>
+                    <Text style={styles.termsLink}>Terms of Service</Text>
                     {' '}and{' '}
                     <Text style={styles.termsLink}>Privacy Policy</Text>
                 </Text>
@@ -122,25 +155,23 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         alignItems: 'center',
+        justifyContent: 'center',
         paddingHorizontal: 20,
-        paddingTop: 60,
     },
     mascot: {
-        width: 200,
-        height: 200,
-        marginBottom: 30,
+        width: 120,
+        height: 120,
+        marginBottom: 20,
     },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
         marginBottom: 10,
-        textAlign: 'center',
     },
     subtitle: {
         fontSize: 16,
         color: '#666',
         marginBottom: 30,
-        textAlign: 'center',
     },
     socialButton: {
         flexDirection: 'row',
@@ -149,35 +180,25 @@ const styles = StyleSheet.create({
         width: '100%',
         padding: 16,
         borderRadius: 12,
-        marginBottom: 16,
-        gap: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#ddd',
     },
     googleButton: {
         backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#ddd',
     },
     facebookButton: {
-        backgroundColor: '#1877F2',
+        backgroundColor: '#fff',
     },
     emailButton: {
         backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#ddd',
-    },
-    socialIcon: {
-        width: 24,
-        height: 24,
     },
     socialButtonText: {
+        marginLeft: 12,
         fontSize: 16,
-        color: '#333',
         fontWeight: '600',
     },
-    facebookButtonText: {
-        color: '#fff',
-    },
-    dividerContainer: {
+    divider: {
         flexDirection: 'row',
         alignItems: 'center',
         width: '100%',
@@ -191,17 +212,14 @@ const styles = StyleSheet.create({
     dividerText: {
         marginHorizontal: 10,
         color: '#666',
-        fontSize: 14,
     },
-    termsText: {
-        fontSize: 14,
+    terms: {
+        fontSize: 12,
         color: '#666',
         textAlign: 'center',
         marginTop: 20,
-        paddingHorizontal: 40,
     },
     termsLink: {
-        color: '#333',
-        textDecorationLine: 'underline',
+        color: '#CA0606',
     },
 }); 

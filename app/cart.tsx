@@ -176,7 +176,6 @@ export default function CartPage() {
                 >
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>My Cart</Text>
                 <TouchableOpacity 
                     style={styles.favoritesButton}
                     onPress={() => router.push('/favorites')}
@@ -327,10 +326,6 @@ const styles = StyleSheet.create({
     },
     backButton: {
         padding: 8,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
     },
     favoritesButton: {
         padding: 8,
